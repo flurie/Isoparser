@@ -11,8 +11,7 @@ class Player
     @ppt = @score.to_f/@turns
   end
   def deck_size
-    count = 0
-    @deck.each_value {|cards| count += cards}
+    @deck.values.inject {|count, cards| count += cards}
     return count
   end
 end
@@ -96,19 +95,36 @@ def games_won_by_tiebreaker
   p "percentage of games broken by tie is #{broken_ties.to_f/two_player_games}"
 end  
 
+def first_player_no_extra_turn_win_margin
+  games = load_data
+  p1_won_equal_turns = 0
+  equal_turns = 0
+  victory_margin = []
+  games.each do |game|
+    if game.players.size == 2 and game.players[0].turns == game.players[1].turns and game.players[0] == game.winner
+      victory_margin << game.winner.score - game.players[1].score
+    end
+  end
+  mean = victory_margin.inject{|sum, x| sum += x}.to_f/victory_margin.size
+  median = victory_margin[victory_margin.size/2]
+  p "p1 mean margin in equal turns #{mean}"
+  p "p1 median margin in equal turns #{median}"
+end
+
 def first_player_extra_turn_win_margin
   games = load_data
   p1_won_equal_turns = 0
   equal_turns = 0
+  victory_margin = []
   games.each do |game|
-    if game.players.size == 2 and game.players[0].turns == game.players[1].turns
-      equal_turns += 1
-      if game.players[0] == game.winner
-        p1_won_equal_turns += 1
-      end
+    if game.players.size == 2 and game.players[0].turns > game.players[1].turns and game.players[0] == game.winner
+        victory_margin << game.winner.score - game.players[1].score
     end
   end
-  p "p1 won in equal turns #{p1_won_equal_turns.to_f/equal_turns*100}"
+  mean = victory_margin.inject{|sum, x| sum += x}.to_f/victory_margin.size
+  median = victory_margin[victory_margin.size/2]
+  p "p1 mean margin in unequal turns #{mean}"
+  p "p1 median margin in unequal turns #{median}"
 end
 
 def opening_histogram
@@ -116,19 +132,25 @@ def opening_histogram
   opening_histogram = {}
   games.each do |game|
     if game.players.size == 2
-      game.players.each do |player|
-        begin
-          opening = player.opening.sort
-        rescue
-          opening = player.opening
+      begin
+        #weed out games where players chose same opening
+        if game.players[0].opening.sort != game.players[1].opening.sort
+          game.players.each do |player|
+            begin
+              opening = player.opening.sort
+            rescue
+              opening = player.opening
+            end
+            unless opening_histogram.has_key? opening
+              opening_histogram[opening] = [0, 0] #games, wins
+            end
+            opening_histogram[opening][0] += 1
+            if player == game.winner
+              opening_histogram[opening][1] += 1
+            end
+          end
         end
-        unless opening_histogram.has_key? opening
-          opening_histogram[opening] = [0, 0] #games, wins
-        end
-        opening_histogram[opening][0] += 1
-        if player == game.winner
-          opening_histogram[opening][1] += 1
-        end
+      rescue
       end
     end
   end
@@ -145,8 +167,30 @@ def opening_histogram
   end
   file.close
 end
-first_player_advantage
-tie_games
+
+def player_win_rate name
+  games = load_data
+  player_games = 0
+  player_wins = 0
+  games.each do |game|
+    if game.players.size == 2
+      game.players.each do |player|
+        if player.name == name
+          player_games += 1
+          if game.winner and player.name == game.winner.name
+            player_wins += 1
+          end
+        end
+      end
+    end
+  end
+  p "#{name}'s win rate is #{player_wins.to_f/player_games}"
+  p "num games is #{player_games}"
+end
+#first_player_advantage
+#tie_games
+first_player_no_extra_turn_win_margin
 first_player_extra_turn_win_margin
-games_won_by_tiebreaker
-opening_histogram    
+#games_won_by_tiebreaker
+#opening_histogram
+#player_win_rate ARGV[0]

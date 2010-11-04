@@ -18,8 +18,7 @@ class Player
     @ppt = @score.to_f/@turns
   end
   def deck_size
-    count = 0
-    @deck.each_value {|cards| count += cards}
+    @deck.values.inject {|count, cards| count += cards}
     return count
   end
 end
